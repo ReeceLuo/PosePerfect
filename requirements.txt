@@ -1,0 +1,7 @@
+
+
+
+google-generativeai
+mediapipe
+numpy
+python-dotenv
