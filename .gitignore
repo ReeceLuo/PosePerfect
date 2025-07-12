@@ -5,3 +5,9 @@ __pycache__/
 *.pyc
 
 .env
+
+
+# temporary ignores
+
+dougie.mp4
+test.py
