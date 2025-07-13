@@ -21,14 +21,15 @@ model = genai.GenerativeModel("models/gemini-2.5-flash")        # instantiate mo
 pose = mp.solutions.pose.Pose()     # Initialize MediaPipe Pose
 
 
-def determine_key_landmarks(): 
-
-    keypoints = {
+# Gets the coordinates of the desired keypoints from a processed frame containing all landmarks
+# params: Landmark object w/ all landmarks
+# return: Dictionary object of xyz coordinates for each desired keypoint
+def get_keypoints(landmark): 
+    
+    keypoints_to_extract = {
         "nose": mp.solutions.pose.PoseLandmark.NOSE,
         "left_eye": mp.solutions.pose.PoseLandmark.LEFT_EYE,
         "right_eye": mp.solutions.pose.PoseLandmark.RIGHT_EYE,
-        "left_ear": mp.solutions.pose.PoseLandmark.LEFT_EAR,
-        "right-ear": mp.solutions.pose.PoseLandmark.RIGHT_EAR,
         "left_shoulder": mp.solutions.pose.PoseLandmark.LEFT_SHOULDER,
         "right_shoulder": mp.solutions.pose.PoseLandmark.RIGHT_SHOULDER,
         "left_elbow": mp.solutions.pose.PoseLandmark.LEFT_ELBOW,
@@ -46,18 +47,25 @@ def determine_key_landmarks():
         "left_foot_index": mp.solutions.pose.PoseLandmark.LEFT_FOOT_INDEX,
         "right_foot_index": mp.solutions.pose.PoseLandmark.RIGHT_FOOT_INDEX
     }
+    
+    keypoints = {}
+
+    for name, index in keypoints_to_extract.items():    # iterate through the dictionary object
+        keypoint = landmark[index]
+        keypoints[name] = (keypoint.x, keypoint.y, keypoint.z)
+
+    return keypoints
 
 
-    return
 
-
-def extract_exemplar_landmarks():
+# Extracts the sequence of keypoints from the exemplar dougie
+def extract_exemplar_keypoints():
     cap = cv2.VideoCapture("dougie.mp4")
     if not cap.isOpened():
         print("Error: video file not opened.")
         exit()
     
-    exemplar_landmarks = []
+    exemplar_landmark_sequence = []
 
     while True:
         ret, frame = cap.read()
@@ -65,16 +73,45 @@ def extract_exemplar_landmarks():
             break
         
         # convert frames from BGR to RGB (for MediaPipe)
-        frame_in_rbg = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame_in_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        frame_landmarks = pose.process(frame_in_rbg)
+        processed_frame = pose.process(frame_in_rgb)    # processes RGB image and returns a NamedTuple pose landmarks
 
-        if frame_landmarks.pose_landmarks:
-            print("Stopped here") # DUMMY CODE
+        mp.solutions.drawing_utils.draw_landmarks(frame, processed_frame.pose_landmarks.landmark, mp.solutions.pose.POSE_CONNECTIONS)   # draws landmarks and connections
 
- 
-    return exemplar_landmarks
+        cv2.imshow("The Dougie", frame)
+
+        # if processed_frame.pose_landmarks is not None:
+        #     frame_keypoints = get_keypoints(processed_frame.pose_landmarks.landmark)
+
+        # exemplar_landmark_sequence.append(frame_keypoints)
+    return exemplar_landmark_sequence
+
+
 
 
 def generate_feedback():
     return
+
+
+
+
+exemplar_keypoints = extract_exemplar_keypoints()
+
+cap = cv2.VideoCapture(0)
+
+print("Starting webcam. Press 'q' to quit.")
+
+while cap.isOpened():
+
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    frame_in_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    processed_frame = mp.process(frame_in_rgb)
+
+    mp.solutions.drawing_utils.draw_landmarks(frame, processed_frame.pose_landmarks.landmark, mp.solutions.pose.POSE_CONNECTIONS)
+
+
+    
