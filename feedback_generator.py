@@ -103,7 +103,7 @@ exemplar_keypoints = extract_exemplar_keypoints()
 
 cap = cv2.VideoCapture(0)
 
-print("Starting webcam. Press 'q' to quit.")
+print("Starting webcam. Press 'r' when you're ready! 'q' to quit.")
 
 while cap.isOpened():
 
@@ -115,6 +115,28 @@ while cap.isOpened():
     processed_frame = mp.process(frame_in_rgb)
 
     mp.solutions.drawing_utils.draw_landmarks(frame, processed_frame.pose_landmarks.landmark, mp.solutions.pose.POSE_CONNECTIONS)
+
+    cv2.imshow(frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):   # 0xFF is a hexadecimal, statement checks if ASCII value of key pressed is 'q's
+        break
+
+    if cv2.waitKey(1) & 0xFF == ord('r'):   # run countdown if 'r' is pressed
+        for i in range(3, 0, -1):
+            # Copy the frame so we don't overwrite the original
+            countdown_frame = frame.copy()
+
+            cv2.putText(countdown_frame,
+                        i,
+                        (frame.shape[1]//2 - 30, frame.shape[0]//2),  # roughly center
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        5, # font size
+                        (255, 255, 255),
+                        10,
+                        cv2.LINE_AA)
+
+            cv2.imshow(countdown_frame)
+            cv2.waitKey(1000)
 
 
     
