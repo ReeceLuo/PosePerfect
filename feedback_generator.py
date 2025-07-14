@@ -77,14 +77,17 @@ def extract_exemplar_keypoints():
 
         processed_frame = pose.process(frame_in_rgb)    # processes RGB image and returns a NamedTuple pose landmarks
 
-        mp.solutions.drawing_utils.draw_landmarks(frame, processed_frame.pose_landmarks.landmark, mp.solutions.pose.POSE_CONNECTIONS)   # draws landmarks and connections
+        mp.solutions.drawing_utils.draw_landmarks(frame, processed_frame.pose_landmarks, mp.solutions.pose.POSE_CONNECTIONS)   # draws landmarks and connections
 
         cv2.imshow("The Dougie", frame)
 
-        # if processed_frame.pose_landmarks is not None:
-        #     frame_keypoints = get_keypoints(processed_frame.pose_landmarks.landmark)
+        if processed_frame.pose_landmarks is not None:
+            frame_keypoints = get_keypoints(processed_frame.pose_landmarks.landmark)
 
-        # exemplar_landmark_sequence.append(frame_keypoints)
+        exemplar_landmark_sequence.append(frame_keypoints)
+
+    cap.release()
+    cv2.destroyAllWindows()
     return exemplar_landmark_sequence
 
 
@@ -115,3 +118,6 @@ while cap.isOpened():
 
 
     
+    
+cap.release()
+cv2.destroyAllWindows()
