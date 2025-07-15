@@ -66,7 +66,7 @@ def extract_exemplar_keypoints():
         print("Error: video file not opened.")
         exit()
     
-    exemplar_landmark_sequence = []
+    exemplar_keypoint_sequence = []
 
     while True:
         ret, frame = cap.read()
@@ -85,11 +85,11 @@ def extract_exemplar_keypoints():
         if processed_frame.pose_landmarks is not None:
             frame_keypoints = get_keypoints(processed_frame.pose_landmarks.landmark)
 
-        exemplar_landmark_sequence.append(frame_keypoints)
+        exemplar_keypoint_sequence.append(frame_keypoints)
 
     cap.release()
     cv2.destroyAllWindows()
-    return exemplar_landmark_sequence
+    return exemplar_keypoint_sequence
 
 
 
@@ -98,7 +98,7 @@ def get_dance_keypoints():
 
 
 
-def generate_feedback():
+def generate_feedback(user_keypoint_sequence, exemplar_keypoint_sequence):
     return
 
 
@@ -130,7 +130,8 @@ def countdown(countdown_active, countdown_start_time, countdown_seconds, frame):
     return countdown_active
 
 
-exemplar_keypoints = extract_exemplar_keypoints()
+
+exemplar_keypoint_sequence = extract_exemplar_keypoints()
 
 cap = cv2.VideoCapture(1)
 
@@ -140,6 +141,12 @@ print("Starting webcam. Press 'r' when you're ready! 'q' to quit.")
 countdown_active = False
 countdown_start_time = None
 countdown_seconds = 3
+
+# 
+hit_da_dougie = False
+dougie_start_time = None
+dougie_duration = 3
+user_keypoint_sequence = []
 
 while cap.isOpened():
 
@@ -156,15 +163,29 @@ while cap.isOpened():
     if countdown_active:
         countdown_active = countdown(countdown_active, countdown_start_time, countdown_seconds, frame)
 
-
-
-
         if not countdown_active:    # countdown has finished
-            elapsed_time = time.time()
+            hit_da_dougie = True    # dougie starts
+            dougie_start_time = time.time()
 
+    if hit_da_dougie:
+        elapsed_time = time.time() - dougie_start_time
+        if processed_frame.pose_landmarks is not None:
+            frame_keypoints = get_keypoints(processed_frame.pose_landmarks.landmark)
+        
+        user_keypoint_sequence.append(frame_keypoints)
 
+        if elapsed_time > dougie_duration:
+            hit_da_dougie = False
 
-
+        elif elapsed_time > dougie_duration - 1:
+            cv2.putText(frame,
+            "Done!",
+            (frame.shape[1]//2 - 200, frame.shape[0]//2),  # roughly center
+            cv2.FONT_HERSHEY_DUPLEX,
+            5, # font size
+            (255, 255, 255),
+            10,
+            cv2.LINE_AA)        
 
     cv2.imshow("Webcam", frame)
 
