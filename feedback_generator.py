@@ -5,6 +5,7 @@ import google.generativeai as genai
 import numpy as np
 from gtts import gTTS                       # audio/text-to-speech
 from dotenv import load_dotenv              # Manages environment variables
+import time                                 # For live countdown
 # from ultralytics import YOLO        
 
 # Set up Gemini API key
@@ -92,18 +93,53 @@ def extract_exemplar_keypoints():
 
 
 
+def get_dance_keypoints():
+    return
+
+
 
 def generate_feedback():
     return
 
 
+# Displays countdown on webcam for user
+def countdown(countdown_active, countdown_start_time, countdown_seconds, frame):
+    elapsed_time = time.time() - countdown_start_time
+    remaining = countdown_seconds - int(elapsed_time)
+    if remaining > 0:
+        cv2.putText(frame,
+                    str(remaining),
+                    (frame.shape[1]//2 - 30, frame.shape[0]//2),  # roughly center
+                    cv2.FONT_HERSHEY_DUPLEX,
+                    5, # font size
+                    (255, 255, 255),
+                    10,
+                    cv2.LINE_AA)
+    elif remaining > -1:
+        cv2.putText(frame,
+                    "Go!",
+                    (frame.shape[1]//2 - 100, frame.shape[0]//2),  # roughly center
+                    cv2.FONT_HERSHEY_DUPLEX,
+                    5, # font size
+                    (255, 255, 255),
+                    10,
+                    cv2.LINE_AA)
+    else:
+        countdown_active = False
+
+    return countdown_active
 
 
 exemplar_keypoints = extract_exemplar_keypoints()
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1)
 
 print("Starting webcam. Press 'r' when you're ready! 'q' to quit.")
+
+# Countdown fields
+countdown_active = False
+countdown_start_time = None
+countdown_seconds = 3
 
 while cap.isOpened():
 
@@ -112,34 +148,37 @@ while cap.isOpened():
         break
 
     frame_in_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    processed_frame = mp.process(frame_in_rgb)
+    processed_frame = pose.process(frame_in_rgb)
 
-    mp.solutions.drawing_utils.draw_landmarks(frame, processed_frame.pose_landmarks.landmark, mp.solutions.pose.POSE_CONNECTIONS)
+    mp.solutions.drawing_utils.draw_landmarks(frame, processed_frame.pose_landmarks, mp.solutions.pose.POSE_CONNECTIONS)
 
-    cv2.imshow(frame)
+    # Start countdown (if 'r' was pressed)
+    if countdown_active:
+        countdown_active = countdown(countdown_active, countdown_start_time, countdown_seconds, frame)
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):   # 0xFF is a hexadecimal, statement checks if ASCII value of key pressed is 'q's
+
+
+
+        if not countdown_active:    # countdown has finished
+            elapsed_time = time.time()
+
+
+
+
+
+    cv2.imshow("Webcam", frame)
+
+    key = cv2.waitKey(1) & 0xFF     # Only called once
+
+    if key == ord('q'):   # 0xFF is a hexadecimal, statement checks if ASCII value of key pressed is 'q's
         break
 
-    if cv2.waitKey(1) & 0xFF == ord('r'):   # run countdown if 'r' is pressed
-        for i in range(3, 0, -1):
-            # Copy the frame so we don't overwrite the original
-            countdown_frame = frame.copy()
-
-            cv2.putText(countdown_frame,
-                        i,
-                        (frame.shape[1]//2 - 30, frame.shape[0]//2),  # roughly center
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        5, # font size
-                        (255, 255, 255),
-                        10,
-                        cv2.LINE_AA)
-
-            cv2.imshow(countdown_frame)
-            cv2.waitKey(1000)
+    if key == ord('r'):   # run countdown if 'r' is pressed
+        countdown_active = True
+        countdown_start_time = time.time()
 
 
-# Testing    
-    
+
+
 cap.release()
 cv2.destroyAllWindows()
