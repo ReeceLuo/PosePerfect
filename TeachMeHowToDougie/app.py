@@ -24,15 +24,14 @@ class TeachMeHowToDougie:
         self.dougie_duration = dougie_duration
 
 
-    # Gets the coordinates of the desired keypoints from a processed frame containing all landmarks
-    # params: Landmark object w/ all landmarks
-    # return: Dictionary object of xyz coordinates for each desired keypoint
     def get_keypoints(self, landmark): 
-        
+        """
+        Gets the coordinates of the desired keypoints from a processed frame containing all landmarks
+        params: Landmark object w/ all landmarks
+        return: Dictionary object of xyz coordinates for each desired keypoint
+        """
+
         keypoints_to_extract = {
-            "nose": mp.solutions.pose.PoseLandmark.NOSE,
-            "left_eye": mp.solutions.pose.PoseLandmark.LEFT_EYE,
-            "right_eye": mp.solutions.pose.PoseLandmark.RIGHT_EYE,
             "left_shoulder": mp.solutions.pose.PoseLandmark.LEFT_SHOULDER,
             "right_shoulder": mp.solutions.pose.PoseLandmark.RIGHT_SHOULDER,
             "left_elbow": mp.solutions.pose.PoseLandmark.LEFT_ELBOW,
@@ -45,10 +44,6 @@ class TeachMeHowToDougie:
             "right_knee": mp.solutions.pose.PoseLandmark.RIGHT_KNEE,
             "left_ankle": mp.solutions.pose.PoseLandmark.LEFT_ANKLE,
             "right_ankle": mp.solutions.pose.PoseLandmark.RIGHT_ANKLE,
-            "left_heel": mp.solutions.pose.PoseLandmark.LEFT_HEEL,
-            "right_heel": mp.solutions.pose.PoseLandmark.RIGHT_HEEL,
-            "left_foot_index": mp.solutions.pose.PoseLandmark.LEFT_FOOT_INDEX,
-            "right_foot_index": mp.solutions.pose.PoseLandmark.RIGHT_FOOT_INDEX
         }
         
         keypoints = {}
@@ -61,8 +56,25 @@ class TeachMeHowToDougie:
 
 
 
-    # Extracts the sequence of keypoints from the exemplar dougie
+
+    def calculate_angles(a, b, c):                                                  # CHECK IF COORDINATE LOGIC IS CORRECT!!
+        """
+        Returns the angle (in degrees) between three points.
+        a, b, c: each a tuple (x, y, z). b is the vertex.
+        """
+        ba = np.array(a) - np.array(b)
+        bc = np.array(c) - np.array(b)
+        cosine_angle = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc))
+        angle = np.arccos(np.clip(cosine_angle, -1.0, 1.0))
+        return np.degrees(angle)
+
+
+
     def extract_exemplar_keypoints(self):
+        """
+        Extracts the sequence of keypoints from the exemplar dougie
+        """
+
         cap = cv2.VideoCapture("dougie.mp4")
         if not cap.isOpened():
             raise RuntimeError("Error: video file not opened.")
@@ -136,10 +148,13 @@ class TeachMeHowToDougie:
         return response.text
 
 
-    # Displays countdown on webcam for user
-    # params: bool for if countdown is active, time countdown started, frame
-    # return: bool for if countdown is still active
+    
     def countdown(self, countdown_active, countdown_start_time, frame):
+        """
+        Displays countdown on webcam for user
+        params: bool for if countdown is active, time countdown started, frame
+        return: bool for if countdown is still active
+        """
         elapsed_time = time.time() - countdown_start_time
         remaining = self.countdown_seconds - int(elapsed_time)
         if remaining > 0:
