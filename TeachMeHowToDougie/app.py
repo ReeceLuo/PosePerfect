@@ -12,16 +12,16 @@ import time                                 # For live countdown
 load_dotenv()                                    # Loads environment variables from .env file  (now available to os.getenv)
 
 class TeachMeHowToDougie:
-    def __init__(self, api_key, exemplar_video, countdown_seconds = 3, dougie_duration = 8):
+    def __init__(self, api_key, exemplar_video, countdown_seconds = 3, dougie_duration = 5):
         # documentation available in Google Gemini API Python SDK
         genai.configure(api_key = api_key)
         self.model = genai.GenerativeModel("models/gemini-2.5-flash")        # instantiate model
 
         # Setup pose extraction
         self.pose = mp.solutions.pose.Pose()     # Initialize MediaPipe Pose
-
-
-
+        self.exemplar_video = exemplar_video
+        self.countdown_seconds = countdown_seconds
+        self.dougie_duration = dougie_duration
 
 
     # Gets the coordinates of the desired keypoints from a processed frame containing all landmarks
@@ -73,6 +73,11 @@ class TeachMeHowToDougie:
             ret, frame = cap.read()
             if not ret:
                 break
+
+            key = cv2.waitKey(1) & 0xFF
+
+            if key == ord ("q"):
+                break
             
             # convert frames from BGR to RGB (for MediaPipe)
             frame_in_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -84,7 +89,8 @@ class TeachMeHowToDougie:
 
             if processed_frame.pose_landmarks is not None:
                 frame_keypoints = self.get_keypoints(processed_frame.pose_landmarks.landmark)
-
+            else:
+                frame_keypoints = None
             exemplar_keypoint_sequence.append(frame_keypoints)
 
         cap.release()
@@ -102,19 +108,28 @@ class TeachMeHowToDougie:
         
         
         prompt = f"""
-        You are a dance coach teaching the user how to do the popular hip-hop dance called "The Dougie". You are given
-        two sequences of joint positions: the first extracted from an exemplar of "The Dougie" dance, and the second from
-        the user.
+        You are a professional dance coach helping a beginner learn the hip-hop move called "The Dougie". 
 
-            - Each line contains normalized 
-            - 
-            - 
+        You are given **two sequences** of human joint positions:  
+        1. The *exemplar sequence* from a professional performing the Dougie correctly.  
+        2. The *user sequence* captured from a webcam.  
+
+        Each sequence is a list of frames. Each frame contains normalized 3D coordinates (x, y, z) of 17 body joints:  
+        nose, eyes, shoulders, elbows, wrists, hips, knees, ankles, heels, and feet.
+
+        Your job is to:
+        - Analyze the user’s movements frame by frame compared to the exemplar.  
+        - Point out where the user deviates (e.g., arm too low, hips not rotating enough, knees too stiff).  
+        - Give **clear, constructive advice** on how to improve.  
+        - End with an encouraging note.
         
         Exemplar sequence:
         {exemplar_keypoint_sequence}
 
         User sequence:
         {user_keypoint_sequence}
+
+        Provide your feedback below:
         """
 
         response = self.model.generate_content(prompt)
@@ -122,11 +137,11 @@ class TeachMeHowToDougie:
 
 
     # Displays countdown on webcam for user
-    # params: bool for if countdown is active, time countdown started, duration of countdown, frame
+    # params: bool for if countdown is active, time countdown started, frame
     # return: bool for if countdown is still active
-    def countdown(self, countdown_active, countdown_start_time, countdown_seconds, frame):
+    def countdown(self, countdown_active, countdown_start_time, frame):
         elapsed_time = time.time() - countdown_start_time
-        remaining = countdown_seconds - int(elapsed_time)
+        remaining = self.countdown_seconds - int(elapsed_time)
         if remaining > 0:
             cv2.putText(frame,
                         str(remaining),
@@ -155,12 +170,11 @@ class TeachMeHowToDougie:
         # Countdown fields
         countdown_active = False
         countdown_start_time = None
-        countdown_seconds = 3
+        running = False
 
         # User's dougie fields
         hit_da_dougie = False
         dougie_start_time = None
-        dougie_duration = 3
         user_keypoint_sequence = []
 
         # Feedback fields
@@ -177,7 +191,8 @@ class TeachMeHowToDougie:
             ret, frame = cap.read()
             if not ret:
                 break
-
+            
+            frame = cv2.flip(frame, 1)
             frame_in_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             processed_frame = self.pose.process(frame_in_rgb)
 
@@ -185,7 +200,7 @@ class TeachMeHowToDougie:
 
             # Start countdown (if 'r' was pressed)
             if countdown_active:
-                countdown_active = self.countdown(countdown_active, countdown_start_time, countdown_seconds, frame)
+                countdown_active = self.countdown(countdown_active, countdown_start_time, frame)
 
                 if not countdown_active:    # countdown has finished
                     hit_da_dougie = True    # dougie starts
@@ -195,14 +210,16 @@ class TeachMeHowToDougie:
                 elapsed_time = time.time() - dougie_start_time
                 if processed_frame.pose_landmarks is not None:
                     frame_keypoints = self.get_keypoints(processed_frame.pose_landmarks.landmark)
+                else:
+                    frame_keypoints = None
                 
                 user_keypoint_sequence.append(frame_keypoints)
 
-                if elapsed_time > dougie_duration:
+                if elapsed_time > self.dougie_duration:
                     hit_da_dougie = False
                     generating_feedback = True
 
-                elif elapsed_time > dougie_duration - 1:
+                elif elapsed_time > self.dougie_duration - 1:
                     cv2.putText(frame,
                     "Done!",
                     (frame.shape[1]//2 - 200, frame.shape[0]//2),  # roughly center
@@ -215,20 +232,21 @@ class TeachMeHowToDougie:
             cv2.imshow("Webcam", frame)
 
             if generating_feedback:
-                self.generate_feedback(user_keypoint_sequence, exemplar_keypoint_sequence)
+                # response = self.generate_feedback(user_keypoint_sequence, exemplar_keypoint_sequence)
+                
+                running = False
+                generating_feedback = False
             else:
                 key = cv2.waitKey(1) & 0xFF     # Only called once
 
                 if key == ord('q'):   # 0xFF is a hexadecimal, statement checks if ASCII value of key pressed is 'q's
                     break
 
-                if key == ord('r'):   # run countdown if 'r' is pressed
+                if key == ord('r') and not running:   # run countdown if 'r' is pressed
+                    running = True
                     countdown_active = True
                     countdown_start_time = time.time()
                     user_keypoint_sequence = []         # reset user keypoint sequence
-
-
-
 
         cap.release()
         cv2.destroyAllWindows()
