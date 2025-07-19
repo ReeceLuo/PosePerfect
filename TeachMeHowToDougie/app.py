@@ -30,7 +30,6 @@ class TeachMeHowToDougie:
         params: Landmark object w/ all landmarks
         return: Dictionary object of desired angles and xyz coordinates for each desired keypoint
         """
-
         mp_path = mp.solutions.pose.PoseLandmark
 
         keypoints_to_extract = {
@@ -49,12 +48,12 @@ class TeachMeHowToDougie:
             keypoints[name] = (keypoint.x, keypoint.y, keypoint.z)
 
         angles = {
-            "left_elbow_angle": self.calc_angle(mp_path.LEFT_SHOULDER, mp_path.LEFT_ELBOW, mp_path.LEFT_WRIST),
-            "right_elbow_angle": self.calc_angle(mp_path.RIGHT_SHOULDER, mp_path.RIGHT_ELBOW, mp_path.RIGHT_WRIST),
-            "left_arm_angle": self.calc_angle(mp_path.LEFT_ELBOW, mp_path.LEFT_SHOULDER, mp_path.LEFT_HIP),
-            "right_arm_angle": self.calc_angle(mp_path.RIGHT_ELBOW, mp_path.RIGHT_SHOULDER, mp_path.RIGHT_HIP),
-            "left_knee_angle": self.calc_angle(mp_path.LEFT_HIP, mp_path.LEFT_KNEE, mp_path.LEFT_ANKLE),
-            "right_knee_angle": self.calc_angle(mp_path.RIGHT_HIP, mp_path.RIGHT_KNEE, mp_path.RIGHT_ANKLE)
+            "left_elbow_angle": self.calc_angle(landmark[mp_path.LEFT_SHOULDER], landmark[mp_path.LEFT_ELBOW], landmark[mp_path.LEFT_WRIST]),
+            "right_elbow_angle": self.calc_angle(landmark[mp_path.RIGHT_SHOULDER], landmark[mp_path.RIGHT_ELBOW], landmark[mp_path.RIGHT_WRIST]),
+            "left_arm_angle": self.calc_angle(landmark[mp_path.LEFT_ELBOW], landmark[mp_path.LEFT_SHOULDER], landmark[mp_path.LEFT_HIP]),
+            "right_arm_angle": self.calc_angle(landmark[mp_path.RIGHT_ELBOW], landmark[mp_path.RIGHT_SHOULDER], landmark[mp_path.RIGHT_HIP]),
+            "left_knee_angle": self.calc_angle(landmark[mp_path.LEFT_HIP], landmark[mp_path.LEFT_KNEE], landmark[mp_path.LEFT_ANKLE]),
+            "right_knee_angle": self.calc_angle(landmark[mp_path.RIGHT_HIP], landmark[mp_path.RIGHT_KNEE], landmark[mp_path.RIGHT_ANKLE])
         }
 
         keypoints_and_angles = keypoints | angles       # merges dictionaries
@@ -63,25 +62,25 @@ class TeachMeHowToDougie:
 
 
 
-
     def calc_angle(self, a, b, c):                                                  # CHECK IF COORDINATE LOGIC IS CORRECT?
         """
         Returns the angle (in degrees) between three points.
-        b is the vertex
+        params: landmarks a, b, and c (b is the vertex)
+        return: angle between landmarks
         """
-        ba = np.array(a) - np.array(b)
-        bc = np.array(c) - np.array(b)
-        cosine_angle = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc))
+        ab = np.hypot(a.x - b.x, a.y - b.y)
+        bc = np.hypot(b.x - c.x, b.y - c.y)
+        cosine_angle = np.dot(ab, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc))
         angle = np.arccos(np.clip(cosine_angle, -1.0, 1.0))
         return np.degrees(angle)
+
 
 
     def extract_exemplar_keypoints(self):
         """
         Extracts the sequence of keypoints from the exemplar dougie
         """
-
-        cap = cv2.VideoCapture("dougie.mp4")
+        cap = cv2.VideoCapture(self.exemplar_video)
         if not cap.isOpened():
             raise RuntimeError("Error: video file not opened.")
         
@@ -106,7 +105,7 @@ class TeachMeHowToDougie:
             cv2.imshow("The Dougie", frame)
 
             if processed_frame.pose_landmarks is not None:
-                frame_keypoints = self.get_keypoints(processed_frame.pose_landmarks.landmark)
+                frame_keypoints = self.get_keypoints_and_angles(processed_frame.pose_landmarks.landmark)
             else:
                 frame_keypoints = None
             exemplar_keypoint_sequence.append(frame_keypoints)
@@ -114,11 +113,6 @@ class TeachMeHowToDougie:
         cap.release()
         cv2.destroyAllWindows()
         return exemplar_keypoint_sequence
-
-
-
-    def get_dance_keypoints():
-        return
 
 
 
@@ -187,6 +181,7 @@ class TeachMeHowToDougie:
         return countdown_active
 
 
+
     def run(self):
         # Countdown fields
         countdown_active = False
@@ -203,9 +198,7 @@ class TeachMeHowToDougie:
         exemplar_keypoint_sequence = self.extract_exemplar_keypoints()
 
         cap = cv2.VideoCapture(1)
-
         print("Starting webcam. Press 'r' when you're ready! 'q' to quit.")
-
 
         while cap.isOpened():
 
@@ -230,7 +223,7 @@ class TeachMeHowToDougie:
             if hit_da_dougie:
                 elapsed_time = time.time() - dougie_start_time
                 if processed_frame.pose_landmarks is not None:
-                    frame_keypoints = self.get_keypoints(processed_frame.pose_landmarks.landmark)
+                    frame_keypoints = self.get_keypoints_and_angles(processed_frame.pose_landmarks.landmark)
                 else:
                     frame_keypoints = None
                 
