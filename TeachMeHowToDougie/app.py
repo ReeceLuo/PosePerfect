@@ -24,50 +24,56 @@ class TeachMeHowToDougie:
         self.dougie_duration = dougie_duration
 
 
-    def get_keypoints(self, landmark): 
+    def get_keypoints_and_angles(self, landmark): 
         """
-        Gets the coordinates of the desired keypoints from a processed frame containing all landmarks
+        Gets the desired angles and keypoints from a processed frame containing all landmarks
         params: Landmark object w/ all landmarks
-        return: Dictionary object of xyz coordinates for each desired keypoint
+        return: Dictionary object of desired angles and xyz coordinates for each desired keypoint
         """
 
+        mp_path = mp.solutions.pose.PoseLandmark
+
         keypoints_to_extract = {
-            "left_shoulder": mp.solutions.pose.PoseLandmark.LEFT_SHOULDER,
-            "right_shoulder": mp.solutions.pose.PoseLandmark.RIGHT_SHOULDER,
-            "left_elbow": mp.solutions.pose.PoseLandmark.LEFT_ELBOW,
-            "right_elbow": mp.solutions.pose.PoseLandmark.RIGHT_ELBOW,
-            "left_wrist": mp.solutions.pose.PoseLandmark.LEFT_WRIST,
-            "right_wrist": mp.solutions.pose.PoseLandmark.RIGHT_WRIST,
-            "left_hip": mp.solutions.pose.PoseLandmark.LEFT_HIP,
-            "right_hip": mp.solutions.pose.PoseLandmark.RIGHT_HIP,
-            "left_knee": mp.solutions.pose.PoseLandmark.LEFT_KNEE,
-            "right_knee": mp.solutions.pose.PoseLandmark.RIGHT_KNEE,
-            "left_ankle": mp.solutions.pose.PoseLandmark.LEFT_ANKLE,
-            "right_ankle": mp.solutions.pose.PoseLandmark.RIGHT_ANKLE,
+            "left_elbow": mp_path.LEFT_ELBOW,
+            "right_elbow": mp_path.RIGHT_ELBOW,
+            "left_knee": mp_path.LEFT_KNEE,
+            "right_knee": mp_path.RIGHT_KNEE,
+            "left_ankle": mp_path.LEFT_ANKLE,
+            "right_ankle": mp_path.RIGHT_ANKLE,
         }
-        
+
         keypoints = {}
 
         for name, index in keypoints_to_extract.items():    # iterate through the dictionary object
             keypoint = landmark[index]
             keypoints[name] = (keypoint.x, keypoint.y, keypoint.z)
 
-        return keypoints
+        angles = {
+            "left_elbow_angle": self.calc_angle(mp_path.LEFT_SHOULDER, mp_path.LEFT_ELBOW, mp_path.LEFT_WRIST),
+            "right_elbow_angle": self.calc_angle(mp_path.RIGHT_SHOULDER, mp_path.RIGHT_ELBOW, mp_path.RIGHT_WRIST),
+            "left_arm_angle": self.calc_angle(mp_path.LEFT_ELBOW, mp_path.LEFT_SHOULDER, mp_path.LEFT_HIP),
+            "right_arm_angle": self.calc_angle(mp_path.RIGHT_ELBOW, mp_path.RIGHT_SHOULDER, mp_path.RIGHT_HIP),
+            "left_knee_angle": self.calc_angle(mp_path.LEFT_HIP, mp_path.LEFT_KNEE, mp_path.LEFT_ANKLE),
+            "right_knee_angle": self.calc_angle(mp_path.RIGHT_HIP, mp_path.RIGHT_KNEE, mp_path.RIGHT_ANKLE)
+        }
+
+        keypoints_and_angles = keypoints | angles       # merges dictionaries
+
+        return keypoints_and_angles
 
 
 
 
-    def calculate_angles(a, b, c):                                                  # CHECK IF COORDINATE LOGIC IS CORRECT!!
+    def calc_angle(self, a, b, c):                                                  # CHECK IF COORDINATE LOGIC IS CORRECT?
         """
         Returns the angle (in degrees) between three points.
-        a, b, c: each a tuple (x, y, z). b is the vertex.
+        b is the vertex
         """
         ba = np.array(a) - np.array(b)
         bc = np.array(c) - np.array(b)
         cosine_angle = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc))
         angle = np.arccos(np.clip(cosine_angle, -1.0, 1.0))
         return np.degrees(angle)
-
 
 
     def extract_exemplar_keypoints(self):
