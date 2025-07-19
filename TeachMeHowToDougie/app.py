@@ -6,6 +6,7 @@ import numpy as np
 from gtts import gTTS                       # audio/text-to-speech
 from dotenv import load_dotenv              # Manages environment variables
 import time                                 # For live countdown
+import threading                            # Do multiple tasks at same time (feedback generation while keeping webcam open)
 # from ultralytics import YOLO        
 
 # Set up Gemini API key
@@ -62,17 +63,27 @@ class TeachMeHowToDougie:
 
 
 
-    def calc_angle(self, a, b, c):                                                  # CHECK IF COORDINATE LOGIC IS CORRECT?
+    def calc_angle(self, a, b, c):
         """
-        Returns the angle (in degrees) between three points.
+        Returns the angle (in degrees) between three points. Uses dot product rule: A ⋅ B = |A||B|cosθ
         params: landmarks a, b, and c (b is the vertex)
         return: angle between landmarks
         """
-        ab = np.hypot(a.x - b.x, a.y - b.y)
-        bc = np.hypot(b.x - c.x, b.y - c.y)
-        cosine_angle = np.dot(ab, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc))
-        angle = np.arccos(np.clip(cosine_angle, -1.0, 1.0))
-        return np.degrees(angle)
+        A = np.array([a.x - b.x, a.y - b.y, a.z - b.z])
+        B = np.array([c.x - b.x, c.y - b.y, c.z - b.z])
+        
+        dot_product =  np.dot(A, B)
+
+        A_magnitude = np.linalg.norm(A)
+        B_magnitude = np.linalg.norm(B)
+        
+        # Clip the cosine value to avoid floating point errors outside [-1, 1]
+        cos_theta = dot_product / (A_magnitude * B_magnitude)
+        cos_theta = np.clip(cos_theta, -1.0, 1.0)  # IMPORTANT
+
+        angle = np.degrees(np.arccos(cos_theta))
+
+        return angle
 
 
 
@@ -84,7 +95,7 @@ class TeachMeHowToDougie:
         if not cap.isOpened():
             raise RuntimeError("Error: video file not opened.")
         
-        exemplar_keypoint_sequence = []
+        exemplar_sequence = []
 
         while True:
             ret, frame = cap.read()
@@ -108,15 +119,15 @@ class TeachMeHowToDougie:
                 frame_keypoints = self.get_keypoints_and_angles(processed_frame.pose_landmarks.landmark)
             else:
                 frame_keypoints = None
-            exemplar_keypoint_sequence.append(frame_keypoints)
+            exemplar_sequence.append(frame_keypoints)
 
         cap.release()
         cv2.destroyAllWindows()
-        return exemplar_keypoint_sequence
+        return exemplar_sequence
 
 
 
-    def generate_feedback(self, user_keypoint_sequence, exemplar_keypoint_sequence):
+    def generate_feedback(self, user_sequence, exemplar_sequence):
         
         
         prompt = f"""
@@ -136,10 +147,10 @@ class TeachMeHowToDougie:
         - End with an encouraging note.
         
         Exemplar sequence:
-        {exemplar_keypoint_sequence}
+        {exemplar_sequence}
 
         User sequence:
-        {user_keypoint_sequence}
+        {user_sequence}
 
         Provide your feedback below:
         """
@@ -191,11 +202,11 @@ class TeachMeHowToDougie:
         # User's dougie fields
         hit_da_dougie = False
         dougie_start_time = None
-        user_keypoint_sequence = []
+        user_sequence = []
 
         # Feedback fields
         generating_feedback = False
-        exemplar_keypoint_sequence = self.extract_exemplar_keypoints()
+        exemplar_sequence = self.extract_exemplar_keypoints()
 
         cap = cv2.VideoCapture(1)
         print("Starting webcam. Press 'r' when you're ready! 'q' to quit.")
@@ -227,7 +238,7 @@ class TeachMeHowToDougie:
                 else:
                     frame_keypoints = None
                 
-                user_keypoint_sequence.append(frame_keypoints)
+                user_sequence.append(frame_keypoints)
 
                 if elapsed_time > self.dougie_duration:
                     hit_da_dougie = False
@@ -246,7 +257,7 @@ class TeachMeHowToDougie:
             cv2.imshow("Webcam", frame)
 
             if generating_feedback:
-                # response = self.generate_feedback(user_keypoint_sequence, exemplar_keypoint_sequence)
+                response = self.generate_feedback(user_sequence, exemplar_sequence)
                 
                 running = False
                 generating_feedback = False
@@ -260,7 +271,7 @@ class TeachMeHowToDougie:
                     running = True
                     countdown_active = True
                     countdown_start_time = time.time()
-                    user_keypoint_sequence = []         # reset user keypoint sequence
+                    user_sequence = []         # reset user keypoint sequence
 
         cap.release()
         cv2.destroyAllWindows()
