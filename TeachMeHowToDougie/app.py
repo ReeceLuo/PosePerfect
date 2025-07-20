@@ -1,4 +1,3 @@
-import os
 import cv2                                  # From OpenCV library, for webcam video stream
 import mediapipe as mp                      # Library from google for cv/ml, works on live camera feed (pose estimation, object detection, etc.)
 import google.generativeai as genai
@@ -23,6 +22,9 @@ class TeachMeHowToDougie:
         self.exemplar_video = exemplar_video
         self.countdown_seconds = countdown_seconds
         self.dougie_duration = dougie_duration
+
+        self.feedback = ""
+        self.feedback_generated = False
 
 
     def get_keypoints_and_angles(self, landmark): 
@@ -87,7 +89,7 @@ class TeachMeHowToDougie:
 
 
 
-    def extract_exemplar_keypoints(self):
+    def extract_exemplar_sequence(self):
         """
         Extracts the sequence of keypoints from the exemplar dougie
         """
@@ -127,22 +129,20 @@ class TeachMeHowToDougie:
 
 
 
-    def generate_feedback(self, user_sequence, exemplar_sequence):
-        
-        
+    def generate_feedback_thread(self, user_sequence, exemplar_sequence):
         prompt = f"""
         You are a professional dance coach helping a beginner learn the hip-hop move called "The Dougie". 
 
-        You are given **two sequences** of human joint positions:  
+        You are given **two sequences** of human joint positions and angles:  
         1. The *exemplar sequence* from a professional performing the Dougie correctly.  
         2. The *user sequence* captured from a webcam.  
 
-        Each sequence is a list of frames. Each frame contains normalized 3D coordinates (x, y, z) of 17 body joints:  
-        nose, eyes, shoulders, elbows, wrists, hips, knees, ankles, heels, and feet.
+        Each sequence is a list of frames. Each frame contains normalized 3D coordinates (x, y, z) of 6 body joints (elbows,
+        knees, and ankles) and 6 body angles (elbows, arms, and knees).
 
         Your job is to:
         - Analyze the user’s movements frame by frame compared to the exemplar.  
-        - Point out where the user deviates (e.g., arm too low, hips not rotating enough, knees too stiff).  
+        - Point out where the user deviates (e.g., arm too low, elbow rotating too much, knees not bent).  
         - Give **clear, constructive advice** on how to improve.  
         - End with an encouraging note.
         
@@ -155,8 +155,8 @@ class TeachMeHowToDougie:
         Provide your feedback below:
         """
 
-        response = self.model.generate_content(prompt)
-        return response.text
+        self.feedback = self.model.generate_content(prompt)
+        self.feedback_generated = True
 
 
     
@@ -206,13 +206,12 @@ class TeachMeHowToDougie:
 
         # Feedback fields
         generating_feedback = False
-        exemplar_sequence = self.extract_exemplar_keypoints()
+        exemplar_sequence = self.extract_exemplar_sequence()
 
         cap = cv2.VideoCapture(1)
         print("Starting webcam. Press 'r' when you're ready! 'q' to quit.")
 
         while cap.isOpened():
-
             ret, frame = cap.read()
             if not ret:
                 break
@@ -254,24 +253,32 @@ class TeachMeHowToDougie:
                     10,
                     cv2.LINE_AA)        
 
+            if generating_feedback:
+                feedback_thread = threading.Thread(             # Creates a new thread object
+                    target = self.generate_feedback_thread,
+                    args = (user_sequence, exemplar_sequence)
+                )
+                feedback_thread.start()
+                generating_feedback = False
+
+            if self.feedback_generated:                         # feedback_thread completed
+                print(self.feedback)
+                
+
+
             cv2.imshow("Webcam", frame)
 
-            if generating_feedback:
-                response = self.generate_feedback(user_sequence, exemplar_sequence)
-                
-                running = False
-                generating_feedback = False
-            else:
-                key = cv2.waitKey(1) & 0xFF     # Only called once
+            key = cv2.waitKey(1) & 0xFF     # Only called once
 
-                if key == ord('q'):   # 0xFF is a hexadecimal, statement checks if ASCII value of key pressed is 'q's
+            if key == ord('q'):   # 0xFF is a hexadecimal, statement checks if ASCII value of key pressed is 'q's
                     break
 
-                if key == ord('r') and not running:   # run countdown if 'r' is pressed
-                    running = True
-                    countdown_active = True
-                    countdown_start_time = time.time()
-                    user_sequence = []         # reset user keypoint sequence
+            if key == ord('r') and not running:   # run countdown if 'r' is pressed
+                running = True
+                countdown_active = True
+                countdown_start_time = time.time()
+                user_sequence = []         # reset user keypoint sequence
+                self.feedback = ""         # reset feedback
 
         cap.release()
         cv2.destroyAllWindows()
