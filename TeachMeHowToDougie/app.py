@@ -3,6 +3,7 @@ import mediapipe as mp                      # Library from google for cv/ml, wor
 import google.generativeai as genai
 import numpy as np
 from gtts import gTTS                       # audio/text-to-speech
+import playsound
 from dotenv import load_dotenv              # Manages environment variables
 import time                                 # For live countdown
 import threading                            # Do multiple tasks at same time (feedback generation while keeping webcam open)
@@ -155,8 +156,16 @@ class TeachMeHowToDougie:
         Provide your feedback below:
         """
 
-        self.feedback = self.model.generate_content(prompt)
+        response = self.model.generate_content(prompt)
+        self.feedback = response.text
         self.feedback_generated = True
+
+
+
+    def speak(self):
+        tts = gTTS(text = self.feedback, lang = "en")
+        tts.save("feedback.mp3")
+        playsound.playsound("feedback.mp3")
 
 
     
@@ -263,7 +272,8 @@ class TeachMeHowToDougie:
 
             if self.feedback_generated:                         # feedback_thread completed
                 print(self.feedback)
-                
+
+
 
 
             cv2.imshow("Webcam", frame)
