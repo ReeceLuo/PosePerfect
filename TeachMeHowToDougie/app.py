@@ -155,7 +155,9 @@ class TeachMeHowToDougie:
         - Give **clear, constructive advice** on how to improve.  
         - End with an encouraging note.
         
-        **If any keypoint is "Not Visible" at any frame, refrain from giving feedback and tell 
+        **If any keypoint is "Not Visible" or any frame is "None" at any frame, refrain from giving feedback and politely remind user that
+        they need to be fully visible in the webcam**
+
         Be extremely concise. Answer in 50 words or less.
 
         Exemplar sequence:

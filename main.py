@@ -26,7 +26,6 @@ def run_app(app):
     user_sequence = []
 
     # Feedback fields
-    start_generating_feedback = False
     generating_feedback_text = False
     exemplar_sequence = app.extract_exemplar_sequence()
 
@@ -63,7 +62,13 @@ def run_app(app):
 
             if elapsed_time > app.dance_duration:
                 hit_da_dougie = False
-                start_generating_feedback = True
+
+                generating_feedback_text = True
+                feedback_thread = threading.Thread(             # Creates a new thread object
+                    target = app.generate_feedback,
+                    args = (user_sequence, exemplar_sequence)
+                )
+                feedback_thread.start()
 
             elif elapsed_time > app.dance_duration - 1:
                 cv2.putText(frame,
@@ -74,16 +79,6 @@ def run_app(app):
                             (255, 255, 255),
                             10,
                             cv2.LINE_AA)        
-
-        if start_generating_feedback:
-            generating_feedback_text = True
-
-            feedback_thread = threading.Thread(             # Creates a new thread object
-                target = app.generate_feedback,
-                args = (user_sequence, exemplar_sequence)
-            )
-            feedback_thread.start()
-            start_generating_feedback = False
 
         if generating_feedback_text:
             cv2.putText(frame,
@@ -99,15 +94,14 @@ def run_app(app):
             generating_feedback_text = False
             print(app.feedback)
             audio_thread = threading.Thread(
-                target = app.speak,
-                # args = (self.feedback,)                     # comma needed to make it a tuple, otherwise it considers the string as multiple args
+                target = app.speak
             )
             audio_thread.start()
             app.feedback_generated = False                 # reset
 
         if app.spoke_feedback:
             running = False
-            app.spoke_feedback = False                     # running
+            app.spoke_feedback = False                     # reset
 
         cv2.imshow("Webcam", frame)
 
