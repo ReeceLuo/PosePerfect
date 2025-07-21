@@ -4,17 +4,12 @@ import google.generativeai as genai
 import numpy as np
 from gtts import gTTS                       # audio/text-to-speech
 import pygame
-from dotenv import load_dotenv              # Manages environment variables
 import time                                 # For live countdown
-import threading                            # Do multiple tasks at same time (feedback generation while keeping webcam open)
-# from ultralytics import YOLO        
-
-# Set up Gemini API key
-load_dotenv()                                    # Loads environment variables from .env file  (now available to os.getenv)
 
 class TeachMeHowToDougie:
     def __init__(self, api_key, exemplar_video, countdown_seconds = 3, dougie_duration = 5):
         # documentation available in Google Gemini API Python SDK
+        # Set up Gemini API key
         genai.configure(api_key = api_key)
         self.model = genai.GenerativeModel("models/gemini-2.5-flash")        # instantiate model
 
@@ -97,6 +92,7 @@ class TeachMeHowToDougie:
     def extract_exemplar_sequence(self):
         """
         Extracts the sequence of keypoints from the exemplar dougie
+        return: sequence of joints and angles from exemplar video
         """
         cap = cv2.VideoCapture(self.exemplar_video)
         if not cap.isOpened():
@@ -135,6 +131,12 @@ class TeachMeHowToDougie:
 
 
     def generate_feedback(self, user_sequence, exemplar_sequence):
+        """
+        Generates feedback for the user
+        params: sequences of coordinates and angles for the user seqeunce and exemplar seqeunce
+        return: text from the generated feedback
+        """
+        
         prompt = f"""
         You are a professional dance coach helping a beginner learn the hip-hop move called "The Dougie". 
 
@@ -171,6 +173,9 @@ class TeachMeHowToDougie:
 
 
     def speak(self):
+        """
+        Voices feedback with pygame mixer module
+        """
         tts = gTTS(text = self.feedback, lang = "en")
         tts.save("feedback.mp3")
         pygame.mixer.init()                         # initializes mixer module, which handles sound playback (loading files, starting/stopping)
@@ -213,119 +218,3 @@ class TeachMeHowToDougie:
             countdown_active = False
 
         return countdown_active
-
-
-
-    def run(self):
-        # Countdown fields
-        countdown_active = False
-        countdown_start_time = None
-        running = False
-
-        # User's dougie fields
-        hit_da_dougie = False
-        dougie_start_time = None
-        user_sequence = []
-
-        # Feedback fields
-        start_generating_feedback = False
-        generating_feedback_text = False
-        exemplar_sequence = self.extract_exemplar_sequence()
-
-        cap = cv2.VideoCapture(1)
-        print("Starting webcam. Press 'r' when you're ready! 'q' to quit.")
-
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-            
-            frame = cv2.flip(frame, 1)
-            frame_in_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            processed_frame = self.pose.process(frame_in_rgb)
-
-            mp.solutions.drawing_utils.draw_landmarks(frame, processed_frame.pose_landmarks, mp.solutions.pose.POSE_CONNECTIONS)
-
-            # Start countdown (if 'r' was pressed)
-            if countdown_active:
-                countdown_active = self.countdown(countdown_active, countdown_start_time, frame)
-
-                if not countdown_active:    # countdown has finished
-                    hit_da_dougie = True    # dougie starts
-                    dougie_start_time = time.time()
-
-            if hit_da_dougie:
-                elapsed_time = time.time() - dougie_start_time
-                if processed_frame.pose_landmarks is not None:
-                    frame_keypoints = self.get_keypoints_and_angles(processed_frame.pose_landmarks.landmark)
-                else:
-                    frame_keypoints = None
-                
-                user_sequence.append(frame_keypoints)
-
-                if elapsed_time > self.dougie_duration:
-                    hit_da_dougie = False
-                    start_generating_feedback = True
-
-                elif elapsed_time > self.dougie_duration - 1:
-                    cv2.putText(frame,
-                                "Done!",
-                                (frame.shape[1]//2 - 200, frame.shape[0]//2),  # roughly center
-                                cv2.FONT_HERSHEY_DUPLEX,
-                                5, # font size
-                                (255, 255, 255),
-                                10,
-                                cv2.LINE_AA)        
-
-            if start_generating_feedback:
-                generating_feedback_text = True
-
-                feedback_thread = threading.Thread(             # Creates a new thread object
-                    target = self.generate_feedback,
-                    args = (user_sequence, exemplar_sequence)
-                )
-                feedback_thread.start()
-                start_generating_feedback = False
-
-            if generating_feedback_text:
-                cv2.putText(frame,
-                            "Generating feedback...",
-                            (frame.shape[1]//2 - 500, frame.shape[0]//2),  # roughly center
-                            cv2.FONT_HERSHEY_DUPLEX,
-                            3, # font size
-                            (255, 255, 255),
-                            10,
-                            cv2.LINE_AA)
-
-            if self.feedback_generated:                         # feedback_thread completed
-                generating_feedback_text = False
-                print(self.feedback)
-                audio_thread = threading.Thread(
-                    target = self.speak,
-                    # args = (self.feedback,)                     # comma needed to make it a tuple, otherwise it considers the string as multiple args
-                )
-                audio_thread.start()
-                self.feedback_generated = False                 # reset
-
-            if self.spoke_feedback:
-                running = False
-                self.spoke_feedback = False                     # running
-
-            cv2.imshow("Webcam", frame)
-
-            key = cv2.waitKey(1) & 0xFF     # Only called once
-
-            if key == ord('q'):   # 0xFF is a hexadecimal, statement checks if ASCII value of key pressed is 'q's
-                    break
-
-            if key == ord('r') and not running:   # run countdown if 'r' is pressed
-                running = True
-                countdown_active = True
-                countdown_start_time = time.time()
-                user_sequence = []         # reset user keypoint sequence
-
-                self.feedback = ""         # reset feedback
-                self.spoke_feedback = False
-
-        cap.release()
-        cv2.destroyAllWindows()
