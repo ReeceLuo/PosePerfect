@@ -10,9 +10,8 @@ from TeachMeHowToDougie.app import TeachMeHowToDougie       # Import class
 
 def main():
     load_dotenv()                                    # Loads environment variables from .env file  (now available to os.getenv)
-    dougie = TeachMeHowToDougie(api_key = os.getenv("GEMINI_API_KEY"), exemplar_video = "dougie.mp4")
+    dougie = TeachMeHowToDougie(api_key = os.getenv("GEMINI_API_KEY"), exemplar_video = "dougie.mp4", dance_name = "The Dougie")
     run_app(dougie)
-
 
 
 def run_app(app):
@@ -128,7 +127,6 @@ def run_app(app):
 
     cap.release()
     cv2.destroyAllWindows()
-
 
 
 if __name__ == "__main__":
