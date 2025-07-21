@@ -7,11 +7,12 @@ import pygame
 import time                                 # For live countdown
 
 class TeachMeHowToDougie:
-    def __init__(self, api_key, exemplar_video, countdown_seconds = 3, dougie_duration = 5):
+    def __init__(self, api_key, exemplar_video, dance_name: str, countdown_seconds = 3, dougie_duration = 5):
         # documentation available in Google Gemini API Python SDK
         # Set up Gemini API key
         genai.configure(api_key = api_key)
         self.model = genai.GenerativeModel("models/gemini-2.5-flash")        # instantiate model
+        self.dance_name = dance_name
 
         # Setup pose extraction
         self.pose = mp.solutions.pose.Pose()     # Initialize MediaPipe Pose
@@ -133,15 +134,15 @@ class TeachMeHowToDougie:
     def generate_feedback(self, user_sequence, exemplar_sequence):
         """
         Generates feedback for the user
-        params: sequences of coordinates and angles for the user seqeunce and exemplar seqeunce
+        params: sequences of coordinates and angles for the user sequence and exemplar seqeunce
         return: text from the generated feedback
         """
         
         prompt = f"""
-        You are a professional dance coach helping a beginner learn the hip-hop move called "The Dougie". 
+        You are a professional dance coach helping a beginner learn the hip-hop move called "{self.dance_name}". 
 
         You are given **two sequences** of human joint positions and angles:  
-        1. The *exemplar sequence* from a professional performing the Dougie correctly.  
+        1. The *exemplar sequence* from a professional performing the {self.dance_name} correctly.  
         2. The *user sequence* captured from a webcam.  
 
         Each sequence is a list of frames. Each frame contains normalized 3D coordinates (x, y, z) of 6 body joints (elbows,
