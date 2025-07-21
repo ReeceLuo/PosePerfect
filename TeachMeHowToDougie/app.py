@@ -7,7 +7,7 @@ import pygame
 import time                                 # For live countdown
 
 class TeachMeHowToDougie:
-    def __init__(self, api_key, exemplar_video = "dougie.mp4", dance_name = "The Dougie", countdown_seconds = 3, dougie_duration = 5):
+    def __init__(self, api_key, exemplar_video = "dougie.mp4", dance_name = "The Dougie", countdown_seconds = 3, dance_duration = 5):
         # documentation available in Google Gemini API Python SDK
         # Set up Gemini API key
         genai.configure(api_key = api_key)
@@ -18,7 +18,7 @@ class TeachMeHowToDougie:
         self.pose = mp.solutions.pose.Pose()     # Initialize MediaPipe Pose
         self.exemplar_video = exemplar_video
         self.countdown_seconds = countdown_seconds
-        self.dougie_duration = dougie_duration
+        self.dance_duration = dance_duration
 
         self.feedback = ""
         self.feedback_generated = False
@@ -117,7 +117,7 @@ class TeachMeHowToDougie:
             
             mp.solutions.drawing_utils.draw_landmarks(frame, processed_frame.pose_landmarks, mp.solutions.pose.POSE_CONNECTIONS)   # draws landmarks and connections
             
-            cv2.imshow("The Dougie", frame)
+            cv2.imshow(self.dance_name, frame)
 
             if processed_frame.pose_landmarks is not None:
                 frame_keypoints = self.get_keypoints_and_angles(processed_frame.pose_landmarks.landmark)

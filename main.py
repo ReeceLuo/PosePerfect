@@ -10,7 +10,7 @@ from TeachMeHowToDougie.app import TeachMeHowToDougie       # Import class
 
 def main():
     load_dotenv()                                    # Loads environment variables from .env file  (now available to os.getenv)
-    dougie = TeachMeHowToDougie(api_key = os.getenv("GEMINI_API_KEY"), exemplar_video = "dougie.mp4", dance_name = "The Dougie")
+    dougie = TeachMeHowToDougie(api_key = os.getenv("GEMINI_API_KEY"))      # input video file name, dance, name, countdown time, and dance duration as parameters
     run_app(dougie)
 
 
@@ -61,11 +61,11 @@ def run_app(app):
             
             user_sequence.append(frame_keypoints)
 
-            if elapsed_time > app.dougie_duration:
+            if elapsed_time > app.dance_duration:
                 hit_da_dougie = False
                 start_generating_feedback = True
 
-            elif elapsed_time > app.dougie_duration - 1:
+            elif elapsed_time > app.dance_duration - 1:
                 cv2.putText(frame,
                             "Done!",
                             (frame.shape[1]//2 - 200, frame.shape[0]//2),  # roughly center
