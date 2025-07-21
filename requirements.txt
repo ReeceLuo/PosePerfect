@@ -1,7 +1,7 @@
-
-
-
-google-generativeai
-mediapipe
-numpy
-python-dotenv
+google.generativeai==0.8.5
+gtts==2.5.4
+mediapipe==0.10.21
+numpy==1.26.4
+opencv-python==4.11.0.86
+pygame==2.6.1
+python-dotenv==1.1.1
