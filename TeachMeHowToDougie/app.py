@@ -229,6 +229,7 @@ class TeachMeHowToDougie:
 
         # Feedback fields
         start_generating_feedback = False
+        generating_feedback_text = False
         exemplar_sequence = self.extract_exemplar_sequence()
 
         cap = cv2.VideoCapture(1)
@@ -268,15 +269,17 @@ class TeachMeHowToDougie:
 
                 elif elapsed_time > self.dougie_duration - 1:
                     cv2.putText(frame,
-                    "Done!",
-                    (frame.shape[1]//2 - 200, frame.shape[0]//2),  # roughly center
-                    cv2.FONT_HERSHEY_DUPLEX,
-                    5, # font size
-                    (255, 255, 255),
-                    10,
-                    cv2.LINE_AA)        
+                                "Done!",
+                                (frame.shape[1]//2 - 200, frame.shape[0]//2),  # roughly center
+                                cv2.FONT_HERSHEY_DUPLEX,
+                                5, # font size
+                                (255, 255, 255),
+                                10,
+                                cv2.LINE_AA)        
 
             if start_generating_feedback:
+                generating_feedback_text = True
+
                 feedback_thread = threading.Thread(             # Creates a new thread object
                     target = self.generate_feedback,
                     args = (user_sequence, exemplar_sequence)
@@ -284,7 +287,18 @@ class TeachMeHowToDougie:
                 feedback_thread.start()
                 start_generating_feedback = False
 
+            if generating_feedback_text:
+                cv2.putText(frame,
+                            "Generating feedback...",
+                            (frame.shape[1]//2 - 500, frame.shape[0]//2),  # roughly center
+                            cv2.FONT_HERSHEY_DUPLEX,
+                            3, # font size
+                            (255, 255, 255),
+                            10,
+                            cv2.LINE_AA)
+
             if self.feedback_generated:                         # feedback_thread completed
+                generating_feedback_text = False
                 print(self.feedback)
                 audio_thread = threading.Thread(
                     target = self.speak,
