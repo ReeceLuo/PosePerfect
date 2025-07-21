@@ -3,7 +3,7 @@ import mediapipe as mp                      # Library from google for cv/ml, wor
 import google.generativeai as genai
 import numpy as np
 from gtts import gTTS                       # audio/text-to-speech
-import playsound
+import pygame
 from dotenv import load_dotenv              # Manages environment variables
 import time                                 # For live countdown
 import threading                            # Do multiple tasks at same time (feedback generation while keeping webcam open)
@@ -26,6 +26,7 @@ class TeachMeHowToDougie:
 
         self.feedback = ""
         self.feedback_generated = False
+        self.spoke_feedback = False
 
 
     def get_keypoints_and_angles(self, landmark): 
@@ -49,7 +50,10 @@ class TeachMeHowToDougie:
 
         for name, index in keypoints_to_extract.items():    # iterate through the dictionary object
             keypoint = landmark[index]
-            keypoints[name] = (keypoint.x, keypoint.y, keypoint.z)
+            if keypoint.visibility > 0.5:             # confidence level for keypoint visibility
+                keypoints[name] = (keypoint.x, keypoint.y, keypoint.z)
+            else: 
+                keypoints[name] = "Not Visible"
 
         angles = {
             "left_elbow_angle": self.calc_angle(landmark[mp_path.LEFT_SHOULDER], landmark[mp_path.LEFT_ELBOW], landmark[mp_path.LEFT_WRIST]),
@@ -130,7 +134,7 @@ class TeachMeHowToDougie:
 
 
 
-    def generate_feedback_thread(self, user_sequence, exemplar_sequence):
+    def generate_feedback(self, user_sequence, exemplar_sequence):
         prompt = f"""
         You are a professional dance coach helping a beginner learn the hip-hop move called "The Dougie". 
 
@@ -143,10 +147,14 @@ class TeachMeHowToDougie:
 
         Your job is to:
         - Analyze the user’s movements frame by frame compared to the exemplar.  
-        - Point out where the user deviates (e.g., arm too low, elbow rotating too much, knees not bent).  
+        - Point out where the user deviates and at what time (e.g., arm too low at the start, elbow rotating too much in the middle,
+          knees not bent near the end).  
         - Give **clear, constructive advice** on how to improve.  
         - End with an encouraging note.
         
+        **If any keypoint is "Not Visible" at any frame, refrain from giving feedback and tell 
+        Be extremely concise. Answer in 50 words or less.
+
         Exemplar sequence:
         {exemplar_sequence}
 
@@ -165,7 +173,13 @@ class TeachMeHowToDougie:
     def speak(self):
         tts = gTTS(text = self.feedback, lang = "en")
         tts.save("feedback.mp3")
-        playsound.playsound("feedback.mp3")
+        pygame.mixer.init()                         # initializes mixer module, which handles sound playback (loading files, starting/stopping)
+        pygame.mixer.music.load("feedback.mp3")     # loads sound file into memory
+        pygame.mixer.music.play()                   # plays loaded audio file
+        while pygame.mixer.music.get_busy():        # True if audio is still playing
+            continue                                # makes sure function does not exit and thread does not terminate
+
+        self.spoke_feedback = True
 
 
     
@@ -214,7 +228,7 @@ class TeachMeHowToDougie:
         user_sequence = []
 
         # Feedback fields
-        generating_feedback = False
+        start_generating_feedback = False
         exemplar_sequence = self.extract_exemplar_sequence()
 
         cap = cv2.VideoCapture(1)
@@ -250,7 +264,7 @@ class TeachMeHowToDougie:
 
                 if elapsed_time > self.dougie_duration:
                     hit_da_dougie = False
-                    generating_feedback = True
+                    start_generating_feedback = True
 
                 elif elapsed_time > self.dougie_duration - 1:
                     cv2.putText(frame,
@@ -262,19 +276,26 @@ class TeachMeHowToDougie:
                     10,
                     cv2.LINE_AA)        
 
-            if generating_feedback:
+            if start_generating_feedback:
                 feedback_thread = threading.Thread(             # Creates a new thread object
-                    target = self.generate_feedback_thread,
+                    target = self.generate_feedback,
                     args = (user_sequence, exemplar_sequence)
                 )
                 feedback_thread.start()
-                generating_feedback = False
+                start_generating_feedback = False
 
             if self.feedback_generated:                         # feedback_thread completed
                 print(self.feedback)
+                audio_thread = threading.Thread(
+                    target = self.speak,
+                    # args = (self.feedback,)                     # comma needed to make it a tuple, otherwise it considers the string as multiple args
+                )
+                audio_thread.start()
+                self.feedback_generated = False                 # reset
 
-
-
+            if self.spoke_feedback:
+                running = False
+                self.spoke_feedback = False                     # running
 
             cv2.imshow("Webcam", frame)
 
@@ -288,7 +309,9 @@ class TeachMeHowToDougie:
                 countdown_active = True
                 countdown_start_time = time.time()
                 user_sequence = []         # reset user keypoint sequence
+
                 self.feedback = ""         # reset feedback
+                self.spoke_feedback = False
 
         cap.release()
         cv2.destroyAllWindows()
