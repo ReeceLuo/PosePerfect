@@ -7,7 +7,7 @@ import pygame
 import time                                 # For live countdown
 
 class TeachMeHowToDougie:
-    def __init__(self, api_key, exemplar_video = "dougie.mp4", dance_name = "The Dougie", countdown_seconds = 3, dance_duration = 5):
+    def __init__(self, api_key: str, exemplar_video: str = "dougie.mp4", dance_name: str = "The Dougie", countdown_seconds: int = 3, dance_duration: int = 5):
         # documentation available in Google Gemini API Python SDK
         # Set up Gemini API key
         genai.configure(api_key = api_key)
