@@ -1,4 +1,4 @@
-# TeachMeHowToDougie
+# PosePerfect
 
 A real-time AI-powered dance coach that uses computer vision to teach you how to Dougie (or any other dance)!
 
